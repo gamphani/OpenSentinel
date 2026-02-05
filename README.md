@@ -88,7 +88,6 @@ OpenSentinel follows a **Federated Data Mesh** architecture:
 You can simulate data ingestion using the API Swagger docs (`/docs`).
 
 **Example Payload (Good Data):**
-```json
 {
   "disease": "Malaria",
   "location": "Hawassa",
@@ -98,9 +97,9 @@ You can simulate data ingestion using the API Swagger docs (`/docs`).
   "date": "2026-02-05",
   "source": "DHIS2"
 }
-Example Payload (Blocked by Policy):
 
-JSON
+**Example Payload (Blocked by Policy):**
+
 {
   "disease": "Unknown",
   "location": "Restricted Zone",
@@ -110,7 +109,8 @@ JSON
   "date": "2026-02-05",
   "source": "Manual"
 }
-🤝 Contribution
+
+## 🤝 Contribution
 OpenSentinel is an open-source initiative. Contributions are welcome to expand connector support (FHIR, HL7) and enhance the federated learning capabilities.
 
 Built with 💚 for Global Health Security.
