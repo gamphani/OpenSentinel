@@ -32,7 +32,7 @@ if [ -d "OpenSentinel" ]; then
 else
     echo "📂 Cloning OpenSentinel Repository..."
     # REPLACE WITH YOUR GITHUB URL
-    git clone https://github.com/YOUR-USERNAME/OpenSentinel.git
+    git clone https://github.com/gamphani/OpenSentinel.git
     cd OpenSentinel
 fi
 
