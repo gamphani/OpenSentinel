@@ -56,7 +56,7 @@ OpenSentinel follows a **Federated Data Mesh** architecture:
 
 1.  **Clone the Repository**
     ```bash
-    git clone [https://github.com/gamphani/OpenSentinel.git](https://github.com/gamphani/OpenSentinel.git)
+    git clone https://github.com/gamphani/OpenSentinel.git
     cd OpenSentinel
     ```
 
