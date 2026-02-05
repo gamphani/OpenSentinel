@@ -2,7 +2,7 @@
 
 import dynamic from 'next/dynamic';
 import { useEffect, useState } from 'react';
-import { Activity, Users, AlertTriangle, CloudRain, ShieldCheck, ShieldAlert } from 'lucide-react';
+import { Activity, Users, AlertTriangle, CloudRain, ShieldCheck, ShieldAlert, Globe } from 'lucide-react';
 
 // Dynamic Import for Map (No SSR)
 const MeshMap = dynamic(() => import('../../components/MeshMap'), { 
@@ -91,7 +91,7 @@ export default function DashboardPage() {
            <MeshMap />
         </div>
 
-        {/* Right: Governance Audit Log */}
+        {/* Right: Governance Audit Log & Risk Stream */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 h-[500px] overflow-y-auto">
           <h3 className="font-bold text-gray-800 mb-4 flex justify-between items-center">
             <span>Governance Audit Log</span>
@@ -101,51 +101,65 @@ export default function DashboardPage() {
           <div className="space-y-3">
             {loading ? <p className="text-sm text-gray-400">Syncing...</p> : 
               logs.length === 0 ? <p className="text-sm text-gray-400">No events recorded.</p> :
-              logs.map((log) => (
-              <div key={log.id} className={`flex items-start gap-3 p-3 rounded-lg border ${log.status === 'blocked' ? 'bg-red-50 border-red-100' : 'bg-white border-gray-100'}`}>
+              logs.map((log) => {
+                // Check if this is a Federation Alert (from another node)
+                const isForeign = log.location && log.location.startsWith("External Node");
                 
-                {/* Icon Column */}
-                <div className={`p-2 rounded-full ${log.status === 'blocked' ? 'bg-red-100 text-red-600' : 'bg-blue-50 text-blue-600'}`}>
-                  {log.status === 'blocked' ? <ShieldAlert size={16} /> : <Activity size={16} />}
-                </div>
-
-                {/* Content Column */}
-                <div className="flex-1">
-                  <div className="flex justify-between items-start">
-                    <p className="text-sm font-bold text-gray-800">
-                      {log.disease}
-                    </p>
+                return (
+                  <div key={log.id} className={`flex items-start gap-3 p-3 rounded-lg border 
+                    ${log.status === 'blocked' ? 'bg-red-50 border-red-100' : 
+                      isForeign ? 'bg-amber-50 border-amber-100' : 
+                      'bg-white border-gray-100'}`}>
                     
-                    {/* RISK BADGE (Only for active records) */}
-                    {log.status === 'active' && (
-                      <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase ml-2
-                        ${log.risk_score > 80 ? 'bg-red-100 text-red-700' : 
-                          log.risk_score > 50 ? 'bg-orange-100 text-orange-700' : 
-                          'bg-green-100 text-green-700'}`}>
-                        Risk: {log.risk_score}%
-                      </span>
-                    )}
+                    {/* Icon Column */}
+                    <div className={`p-2 rounded-full 
+                      ${log.status === 'blocked' ? 'bg-red-100 text-red-600' : 
+                        isForeign ? 'bg-amber-100 text-amber-600' : 
+                        'bg-blue-50 text-blue-600'}`}>
+                      
+                      {/* Icon Logic: Shield for Blocked, Globe for Foreign, Activity for Local */}
+                      {log.status === 'blocked' ? <ShieldAlert size={16} /> : 
+                       isForeign ? <Globe size={16} /> : <Activity size={16} />}
+                    </div>
+
+                    {/* Content Column */}
+                    <div className="flex-1">
+                      <div className="flex justify-between items-start">
+                        <p className="text-sm font-bold text-gray-800">
+                          {log.disease}
+                        </p>
+                        
+                        {/* RISK BADGE (Only for active records) */}
+                        {log.status === 'active' && (
+                          <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase ml-2
+                            ${log.risk_score > 80 ? 'bg-red-100 text-red-700' : 
+                              log.risk_score > 50 ? 'bg-orange-100 text-orange-700' : 
+                              'bg-green-100 text-green-700'}`}>
+                            Risk: {log.risk_score}%
+                          </span>
+                        )}
+                      </div>
+                      
+                      <p className="text-xs text-gray-500 mt-0.5">
+                        {log.location}
+                      </p>
+                      
+                      <div className="flex justify-between items-center mt-2 border-t border-gray-50 pt-2">
+                         <span className={`text-xs ${log.status === 'blocked' ? 'text-red-500 font-medium' : 'text-gray-400'}`}>
+                           {log.source}
+                         </span>
+                         
+                         {/* WEATHER BADGE */}
+                         {log.weather_context && (
+                           <span className="text-[10px] bg-blue-50 text-blue-600 px-2 py-0.5 rounded border border-blue-100 ml-2">
+                             {log.weather_context}
+                           </span>
+                         )}
+                      </div>
+                    </div>
                   </div>
-                  
-                  <p className="text-xs text-gray-500 mt-0.5">
-                    {log.location}
-                  </p>
-                  
-                  <div className="flex justify-between items-center mt-2 border-t border-gray-50 pt-2">
-                     <span className={`text-xs ${log.status === 'blocked' ? 'text-red-500 font-medium' : 'text-gray-400'}`}>
-                       {log.source}
-                     </span>
-                     
-                     {/* WEATHER BADGE */}
-                     {log.weather_context && (
-                       <span className="text-[10px] bg-blue-50 text-blue-600 px-2 py-0.5 rounded border border-blue-100">
-                         {log.weather_context}
-                       </span>
-                     )}
-                  </div>
-                </div>
-              </div>
-            ))}
+                );
+              })}
           </div>
         </div>
 

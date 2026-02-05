@@ -15,6 +15,8 @@ from .analysis import analyzer # <--- NEW
 import httpx # Needed for async requests
 from .weather import meteo # <--- Import new service
 
+from .federation import diplomat # <--- New Import
+
 # Initialize Tables
 models.Base.metadata.create_all(bind=engine)
 
@@ -70,10 +72,10 @@ class StatsOutput(BaseModel):
 # --- 3. INTELLIGENCE ENDPOINTS ---
 
 @app.post("/ingest", status_code=status.HTTP_201_CREATED)
-async def ingest_data(record: RecordInput, db: Session = Depends(database.get_db)): # <--- Changed to async
+async def ingest_data(record: RecordInput, db: Session = Depends(database.get_db)):
     # 1. Policy Check
     policy = policy_engine.check(record.dict())
-
+    
     final_status = "blocked" if not policy.allowed else "active"
     audit_note = f"{record.source}"
     if not policy.allowed:
@@ -85,7 +87,7 @@ async def ingest_data(record: RecordInput, db: Session = Depends(database.get_db
 
     if policy.allowed:
         risk_data = analyzer.analyze(record.cases, record.disease)
-        # 3. One Health Fusion (NEW!)
+        # 3. One Health Fusion (Weather)
         # Fetch real satellite data for this location/date
         weather_info = await meteo.get_context(record.lat, record.lng, record.date)
 
@@ -95,12 +97,17 @@ async def ingest_data(record: RecordInput, db: Session = Depends(database.get_db
     data_to_save['source'] = audit_note
     data_to_save['risk_score'] = risk_data['score']
     data_to_save['anomaly_type'] = risk_data['anomaly']
-    data_to_save['weather_context'] = weather_info # <--- Saving it
+    data_to_save['weather_context'] = weather_info
 
     new_record = models.HealthRecord(**data_to_save)
     db.add(new_record)
     db.commit()
     db.refresh(new_record)
+    
+    # 5. Federation Broadcast (The Mesh) - NEW!
+    # If the brain says it's critical (>80%), tell the neighbors.
+    if policy.allowed and risk_data['score'] > 80:
+        await diplomat.broadcast_alert(new_record, risk_data)
 
     if not policy.allowed:
         return {"status": "rejected", "reason": policy.reason, "id": new_record.id}
@@ -109,21 +116,43 @@ async def ingest_data(record: RecordInput, db: Session = Depends(database.get_db
         "status": "ingested", 
         "id": new_record.id, 
         "risk": risk_data,
-        "weather": weather_info # Return to sender
+        "weather": weather_info
     }
-    
-@app.get("/stats", response_model=StatsOutput)
-def get_live_stats(db: Session = Depends(database.get_db)):
-    # Only count 'active' records for the dashboard numbers
-    total_cases = db.query(func.sum(models.HealthRecord.cases)).filter(models.HealthRecord.status == 'active').scalar() or 0
-    active_alerts = db.query(models.HealthRecord).filter(models.HealthRecord.cases > 0, models.HealthRecord.status == 'active').count()
-    locations = db.query(models.HealthRecord.location).filter(models.HealthRecord.status == 'active').distinct().count()
-    
-    return {
-        "total_cases": total_cases,
-        "active_alerts": active_alerts,
-        "locations_monitored": locations
-    }
+
+# --- 4. FEDERATION ENDPOINTS (The Mesh) ---
+
+class PeerSignal(BaseModel):
+    origin_node: str
+    disease: str
+    anomaly: str
+    risk_score: float
+    status: str
+    timestamp: str
+
+@app.post("/federation/signal")
+def receive_signal(signal: PeerSignal, db: Session = Depends(database.get_db)):
+    """
+    Receives alerts from Kenya, Uganda, etc.
+    """
+    # Save as a "Foreign Alert" in our health records
+    # We treat it as a record with 0 cases (info only) but High Risk
+    new_record = models.HealthRecord(
+        disease=signal.disease,
+        location=f"External Node: {signal.origin_node}",
+        lat=0.0, # Unknown location
+        lng=0.0, # Unknown location
+        cases=0,
+        date=date.today(),
+        status="active",
+        source=f"MESH ALERT | {signal.anomaly}",
+        risk_score=signal.risk_score,
+        anomaly_type="Foreign Threat"
+    )
+
+    db.add(new_record)
+    db.commit()
+
+    return {"status": "Acknowledged"}
 
 @app.get("/records")
 def get_audit_log(limit: int = 10, db: Session = Depends(database.get_db)):
